@@ -8,9 +8,9 @@ def producer():
 def consumer(p):
     for i in range(3):
         p.send(i)
-        # print(i,'consumer',next(p))
         
 p=producer()
+#预激活
 next(p)
 consumer(p)
     
