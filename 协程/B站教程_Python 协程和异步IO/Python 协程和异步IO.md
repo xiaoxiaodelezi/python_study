@@ -164,3 +164,21 @@ for task in asyncio.as_completed(tasks):
     print(result)
 ```
 
+
+
+## 11.协程停止
+
+future有4个状态：pending，running，done，cancelled
+
+协程没有嵌套时，直接调用task.cancel()可以取消协程。
+
+loop.stop() 暂停异步循环
+
+loop.run_forever() 启动异步循环
+
+loop.close() 关闭异步循环
+
+有嵌套时使用外层协程关闭内层协程（暂时还没有解决，视频中的代码尝试失败）
+
+
+
