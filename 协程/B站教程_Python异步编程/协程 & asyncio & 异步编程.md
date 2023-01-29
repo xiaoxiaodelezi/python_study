@@ -484,7 +484,7 @@ tasks_list当出现在协程函数外时，不能使用create_task，因为这�
 
 
 
-### 3.5 Future对象
+### 3.5 asyncio.Future对象
 
 Future是一个特殊的底层可等待对象，用来代表一个同步运行的最终结果
 
@@ -510,3 +510,282 @@ async def main():
 asyncio.run(main())
 ```
 
+示例2：
+
+```python
+import asyncio
+
+
+async def func():
+    print(1)
+    await asyncio.sleep(2)
+    print(2)
+    return '返回值'
+
+
+async def main():
+    print('执行函数内部代码')
+
+    tasks_list = [
+        asyncio.create_task(func(), name='n1'),
+        asyncio.create_task(func(), name='n2'),
+    ]
+
+    print('main 结束')
+
+    #等待任务列表完成，返回元组
+    done, pending = await asyncio.wait(tasks_list, timeout=None)
+
+    print(done)
+
+
+asyncio.run(main())
+```
+
+
+
+示例3：
+
+```python
+import asyncio
+
+
+async def set_after(fut):
+    await asyncio.sleep(2)
+    fut.set_result('666')
+
+
+async def main():
+    loop = asyncio.get_running_loop()
+
+    #创建一个任务（future对象），没有绑定任何行为，这个任务永远不会结束
+    fut = loop.create_future()
+    
+    #将fut这个future作为参数传给set_after，返回一个绑定行为的future
+    #并将这个future对象传给create_task，创建task
+    await loop.create_task(set_after(fut))
+
+    #等待fut获取结果
+    data = await fut
+    print(data)
+
+
+asyncio.run(main())
+```
+
+
+
+### 3.6 concurrent.futures.Future对象
+
+使用线程池、进程池实现异步操作时用到的对象
+
+```python
+import time
+from concurrent.futures import Future
+from concurrent.futures.thread import ThreadPoolExecutor
+from concurrent.futures.process import ProcessPoolExecutor
+
+
+def func(value):
+    time.sleep(1)
+    print(value)
+    return 123
+
+
+#创建线程池
+pool = ThreadPoolExecutor(max_workers=5)
+
+#创建进程池
+# pool=ProcessPoolExecutor(max_workers=5)
+
+for i in range(10):
+    fut = pool.submit(func, i)
+    print(fut.result())
+
+```
+
+
+
+写代码时可能会存在交叉使用。例如：crm项目80%基于协程异步编程+mysql（不支持协程）【线程、进程做异步编程】
+
+```python
+import time
+import asyncio
+import concurrent.futures
+
+
+def func1():
+    time.sleep(2)
+    return 'SB'
+
+
+async def main():
+    loop = asyncio.get_running_loop()
+
+    #1.run in the default loop's executor（默认threadpoolexecutor）
+    #第一步：内部会先调用Threadpoolexecutor的submit方法去线程池中申请一个线程去执行func1函数
+    #返回一个concurrent.futures.Futures对象
+    #第二步：调用asyncio.wrap_future方法将concurrent.futures.Future对象
+    #包装为asyncio.Future对象
+    #因为concurrent.futures.Future对象不支持await语法，所以需要包装
+    fut = loop.run_in_executor(None, func1)
+    #包装后的fut可以使用await
+    result = await fut
+    print('default thread poo1', result)
+
+    # 2.run in custom thread pool"
+    # with concurrent.futures.ThreadPoolExecutor() as pool:
+    #     result = await loop.run_in_executor(pool, func1)
+    #     print('custom thread pool', result)
+
+    # 3.run in a custom process pool
+    # with concurrent.futures.ProcessPoolExecutor() as pool:
+    #     result = await loop.run_in_executor(pool, func1)
+    #     print('custom process pool', result)
+
+
+asyncio.run(main)
+```
+
+案例：
+
+```python
+import asyncio
+import requests
+
+
+async def download_image(url):
+    print('start', url)
+    loop = asyncio.get_event_loop()
+    #requests模块默认不支持异步操作，所以就使用线程池来配合实现
+    future = loop.run_in_executor(None, requests.get, url)
+
+    response = await future
+    print('finished')
+    file_name = url.rsplit('-')[-1]
+    with open(file_name, mode='wb') as file_object:
+        file_object.write(response.content)
+
+
+if __name__ == '__main__':
+    url_list = [
+        1,
+        2,
+        3,
+    ]
+
+    tasks = [download_image(url) for url in url_list]
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(asyncio.wait(tasks))
+
+```
+
+
+
+### 3.7 异步迭代器
+
+什么是异步迭代器
+
+实现了aiter和anext方法的对象，anext必须返回一个awaitable对象，async for 会处理异步迭代器的anext方法并返回可等待对象，直到其引发stopasynciteration异常
+
+什么是异步可迭代对象
+
+可在async for语句中被使用的对象，必须通过它的aiter方法返回一个asynchronous iterator
+
+```python
+import asyncio
+
+
+class Reader(object):
+
+    def __init__(self):
+        self.count = 0
+
+    #需要加async
+    async def readline(self):
+        self.count += 1
+        if self.count == 100:
+            return None
+        return self.count
+
+    def __aiter__(self):
+        return self
+
+    #需要加async
+    async def __anext__(self):
+        val = await self.readline()
+        if val == None:
+            raise StopAsyncIteration
+        return val
+
+
+async def func():
+    obj = Reader()
+    #async for必须在async的函数中使用
+    async for item in obj:
+        print(item)
+
+
+asyncio.run(func())
+```
+
+
+
+### 3.8 异步上下文管理器
+
+此种对象通过定义aenter和aexit方法来对async with语句中的环境进行控制
+
+```python
+import asyncio
+
+
+class AsyncContextManager:
+
+    def __init__(self):
+        self.conn = conn
+
+    async def do_something(self):
+        return 666
+
+    async def __aenter__(self):
+        self.conn = await asyncio.sleep(1)
+        return self
+
+    async def __aexit__(self):
+        await asyncio.sleep(1)
+
+
+obj = AsyncContextManager()
+
+
+#async with必须嵌套在一个async函数中
+async def func():
+    async with obj as f:
+        result = await f.do_somthing()
+        print(result)
+
+
+asyncio.run(func())
+```
+
+
+
+## 4.uvloop
+
+是asyncio的事件循环的替代方案。uvloop的事件循环效率高于asyncio。
+
+```python
+import asyncio
+import uvloop
+
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+#编写asyncio的代码与hi前代码一致
+
+#内部的事件循环会自动变为uvloop
+
+asyncio.run()
+```
+
+注意：一个asgi ---> uvicorn（django3 内部使用了这个，用uvloop写的）
