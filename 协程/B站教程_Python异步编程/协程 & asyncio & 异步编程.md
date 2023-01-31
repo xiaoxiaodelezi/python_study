@@ -789,3 +789,228 @@ asyncio.run()
 ```
 
 注意：一个asgi ---> uvicorn（django3 内部使用了这个，用uvloop写的）
+
+
+
+## 5.实战案例
+
+### 5.1 异步redis
+
+在使用python代码操作redis时，链接/操作/断开都是网络io
+
+示例1：
+
+```python
+pip install aioredis
+```
+
+```python
+import asyncio
+import aioredis
+
+async def execute(address,password):
+    #程序中的await本质是在等待io时让出资源，让其他的execute可以获得使用权
+    print('start:',address)
+    redis = await aioredis.create_redis(address,password)
+
+    await redis.hmset_dict('car',key1=1,key2=2,key3=3)
+
+    result=await redis.hgetall('car',encoding='utf-8')
+    print(result)
+
+    redis.close()
+    
+    await redis.wait_closed()
+
+    print('finished',address)
+
+asyncio.run(execute(address,password))
+```
+
+示例2：
+
+```python
+import asyncio
+import aioredis
+
+
+async def execute(address, password):
+    print('start:', address)
+    redis = await aioredis.create_redis(address, password)
+
+    await redis.hmset_dict('car', key1=1, key2=2, key3=3)
+
+    result = await redis.hgetall('car', encoding='utf-8')
+    print(result)
+
+    redis.close()
+
+    await redis.wait_closed()
+
+    print('finished', address)
+
+
+task_list = [
+    execute(redis1, ps1),
+    execute(redis2, ps2),
+]
+
+asyncio.run(asyncio.wait(task_lists))
+```
+
+### 5.2 异步MySQL
+
+```python
+pip install aiomysql
+```
+
+示例1：
+
+```python
+import asyncio
+import aiomysql
+
+
+async def execute():
+    conn = await aiomysql.connect(
+        host='111',
+        port=3306,
+        user='aaa',
+        password='123',
+        db='mysql',
+    )
+
+    cur = await conn.cursor()
+
+    await cur.execute('SELECT HOST,User FROM user')
+
+    result = await cur.fetchall()
+    print(result)
+
+    await cur.close()
+    conn.close()
+
+
+asyncio.run(execute())
+```
+
+示例2：
+
+```python
+import asyncio
+import aiomysql
+
+
+async def execute(host, password):
+    conn = await aiomysql.connect(
+        host=host,
+        port=3306,
+        user='aaa',
+        password=password,
+        db='mysql',
+    )
+
+    cur = await conn.cursor()
+
+    await cur.execute('SELECT HOST,User FROM user')
+
+    result = await cur.fetchall()
+    print(result)
+
+    await cur.close()
+    conn.close()
+
+
+tasks_list = [
+    execute('1', '1'),
+    execute('2', '2'),
+]
+
+asyncio.run(asyncio.wait(tasks_list))
+```
+
+###  5.3 FastAPI 框架
+
+```python
+pip install fastapi
+pip install uvicorn #asgi内基于uvloop
+```
+
+示例：
+
+```python
+import asyncio,aioredis
+
+import uvicorn
+
+from fastapi import FastAPI
+
+app=FastAPI()
+
+REDIS_POOL=aioredis.ConnectionPool('redis.....',password='asdf',minsize=1,maxsize=10)
+
+
+@app.get('/red')
+async def red():
+    print('request')
+    await asyncio.sleep(3)
+    conn=await REDIS_POOL.acquire()
+    redis=Redis(conn)
+
+    await redis.hmset_dict('car',key1=1,key2=2)
+
+    result = await redis.hgetall('car',encoding='utf-8')
+
+    REDIS_POOL.release(conn)
+
+    return result
+
+@app.get('/')
+def index():
+    return {'message':'hello world'}
+
+
+
+if __name__='__main__':
+    #luffy脚本名称，app，app装饰器
+    uvicorn.run('luffy:app',host='127.0.0.1',port=5000,log_level='info')
+
+```
+
+### 5.4 异步爬虫
+
+```python
+pip install aiohttp
+```
+
+示例：
+
+```python
+import aiohttp
+import asyncio
+
+
+async def fetch(session, url):
+    print('发送请求:', url)
+    async with session.get(url, verify_ssl=False) as response:
+        text = await response.text()
+        print('得到结果：', url, len(text))
+
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        url_list = ['https://python.org', 'https://www.baidu.com']
+        tasks = [asyncio.create_task(fetch(session, url)) for url in url_list]
+
+        await asyncio.wait(tasks)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+
+
+## 总结
+
+最大的意义：通过一个线程利用其IO等待时间去做一些其他事情。

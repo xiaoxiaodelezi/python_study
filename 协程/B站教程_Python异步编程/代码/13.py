@@ -11,7 +11,7 @@ async def func():
 async def main():
     print('执行函数内部代码')
 
-    tasks = [
+    tasks_list = [
         asyncio.create_task(func(), name='n1'),
         asyncio.create_task(func(), name='n2'),
     ]
@@ -19,7 +19,7 @@ async def main():
     print('main 结束')
 
     #等待任务列表完成，返回元组
-    done, pending = await asyncio.wait(tasks, timeout=None)
+    done, pending = await asyncio.wait(tasks_list, timeout=None)
 
     print(done)
 
