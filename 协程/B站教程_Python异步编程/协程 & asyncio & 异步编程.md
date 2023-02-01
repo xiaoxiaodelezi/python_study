@@ -407,6 +407,7 @@ async def main():
     print('main 结束')
     #结果会出现再main结束这段文字之后
     #线程只在await位置卡住并等待切换
+    #ret1和ret2的生成时间是一起的，因为task1和task2是并行
     ret1 = await task1
 
     ret2 = await task2
@@ -436,6 +437,8 @@ async def main():
     print('执行函数内部代码')
 
     #将任务添加到任务列表，name参数指定任务名称
+    
+    #将两个task包装成一个task_list，在协程函数main中使用await asyncio.wait(tasks)调用
     tasks = [
         asyncio.create_task(func(), name='n1'),
         asyncio.create_task(func(), name='n2'),
@@ -446,6 +449,7 @@ async def main():
     #等待任务列表完成，返回元组
     #done表示所有完成任务的集合，pending表示尚未完成的
     #timeout参数表示等待时间
+    #main函数包含多个task任务时，main函数内部使用await asyncio.wait(tasks)
     done, pending = await asyncio.wait(tasks, timeout=None)
 
     
@@ -475,6 +479,7 @@ tasks_list = [
     func(),
 ]
 
+#在主程序中将协程函数所创建的对象func()作为列表元素，将列表直接传给asyncio.run(asyncio.wait(tasks_list))
 asyncio.run(asyncio.wait(tasks_list))
 ```
 
@@ -510,41 +515,9 @@ async def main():
 asyncio.run(main())
 ```
 
+
+
 示例2：
-
-```python
-import asyncio
-
-
-async def func():
-    print(1)
-    await asyncio.sleep(2)
-    print(2)
-    return '返回值'
-
-
-async def main():
-    print('执行函数内部代码')
-
-    tasks_list = [
-        asyncio.create_task(func(), name='n1'),
-        asyncio.create_task(func(), name='n2'),
-    ]
-
-    print('main 结束')
-
-    #等待任务列表完成，返回元组
-    done, pending = await asyncio.wait(tasks_list, timeout=None)
-
-    print(done)
-
-
-asyncio.run(main())
-```
-
-
-
-示例3：
 
 ```python
 import asyncio
@@ -562,10 +535,10 @@ async def main():
     fut = loop.create_future()
     
     #将fut这个future作为参数传给set_after，返回一个绑定行为的future
-    #并将这个future对象传给create_task，创建task
+    #create_task实际传入的是一个协程
     await loop.create_task(set_after(fut))
 
-    #等待fut获取结果
+    #等待fut获取结果，
     data = await fut
     print(data)
 
@@ -598,6 +571,7 @@ pool = ThreadPoolExecutor(max_workers=5)
 #创建进程池
 # pool=ProcessPoolExecutor(max_workers=5)
 
+#fut是线程池中一个func，参数i的结果
 for i in range(10):
     fut = pool.submit(func, i)
     print(fut.result())
@@ -635,6 +609,7 @@ async def main():
 
     # 2.run in custom thread pool"
     # with concurrent.futures.ThreadPoolExecutor() as pool:
+    		#传入了pool作为新的循环上下文
     #     result = await loop.run_in_executor(pool, func1)
     #     print('custom thread pool', result)
 

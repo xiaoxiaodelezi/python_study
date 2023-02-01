@@ -22,6 +22,36 @@ res=yield 4
 
 如果使用send方法继续调用，res为send的参数，函数运行到下个yield右侧，或者程序结束返回stopiteration错误
 
+```python
+#构建一个生成器函数
+def func(x):
+	count=x
+	y=0
+	while y<10:
+		sender = yield x,y
+		x+=1
+		y+=1
+		print(sender)
+
+#获得一个生成器对象
+res=func(2)
+
+#向没有激活的生成器函数发送值会导致错误
+#res.send(20)
+
+#激活生成器的方式是使用一次next
+#打印yiled产出的值
+print(next(res))
+
+#再次使用next，sender作为接受send函数发送的值没有收到数据，依旧是None
+print(next(res)
+	  
+#发送数据，sender有值
+print(res.send(10))
+```
+
+
+
 
 
 ## 3.yield实现生产者和消费者
@@ -29,6 +59,28 @@ res=yield 4
 使用send函数可以向协程函数发送数据
 
 在生产者和消费者这个案例中，消费者是一个生成器函数，生产者是一个参数为生成器函数的函数。将逻辑中的后手设定为生成器函数，先手设定为带生成器函数参数的函数
+
+```python
+# yield 实现生产者和消费者连接
+# 生成器生成一个消费者，传给生产者生产
+
+def productor(c):
+	for i in range(5):
+		consumer_id = c.send(i)
+		print(consumer_id,i)
+
+
+def consumer():
+	id=0
+	while True:
+		receiver = yield id
+		id +=1
+		
+
+c=consumer()
+print(next(c))
+productor(c)
+```
 
 
 
