@@ -420,7 +420,7 @@ async def main():
             await asyncio.sleep(1)
     
     asyncio.run(display_date())
-    
+
 
 ​	*在 3.10 版更改:* 移除了 *loop* 形参。
 
@@ -683,3 +683,294 @@ asyncio.run(main())
 
 
 
+## [简单等待](https://docs.python.org/zh-cn/3/library/asyncio-task.html#id11)
+
+- *coroutine* asyncio.**wait**(*aws*, ***, *timeout=None*, *return_when=ALL_COMPLETED*)
+
+  在aws可迭代并发和区块中运行 [`Future`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future) 和 [`Task`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task) 实例，直到*return_when*.*aws* 返回特定的状态可迭代对象必须不为空。返回两个 Task/Future 集合: `(done, pending)`。用法：
+
+```python
+done, pending = await asyncio.wait(aws)
+```
+
+如指定 *timeout* (float 或 int 类型) 则它将被用于控制返回之前等待的最长秒数。
+
+注意这个函数不会抛出 [`TimeoutError`](https://docs.python.org/zh-cn/3/library/exceptions.html#TimeoutError)。因为超时没有完成的Futures 或者 Tasks 时只是返回设定的second值。
+
+*return_when* 指定此函数应在何时返回。它必须为以下常数之一:
+
+| 常量              | 描述                                                         |
+| :---------------- | :----------------------------------------------------------- |
+| `FIRST_COMPLETED` | 函数将在任意可等待对象结束或取消时返回。                     |
+| `FIRST_EXCEPTION` | 函数将在任意可等待对象因引发异常而结束时返回。当没有引发任何异常时它就相当于 `ALL_COMPLETED`。 |
+| `ALL_COMPLETED`   | 函数将在所有可等待对象结束或取消时返回。                     |
+
+与 [`wait_for()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.wait_for) 不同，`wait()` 在超时发生时不会取消可等待对象。
+
+*在 3.10 版更改:* 移除了 *loop* 形参。
+
+*在 3.11 版更改:* Passing coroutine objects to `wait()` directly is forbidden.
+
+asyncio.**as_completed**(*aws*, ***, *timeout=None*)
+
+​	并发地运行 *aws* 可迭代对象中的 [可等待对象](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio-awaitables)。 返回一个协程的迭代器。 所返回的每个协程可被等待以从剩余	的可等待对象的可迭代对象中获得最早的下一个结果。Raises [`TimeoutError`](https://docs.python.org/zh-cn/3/library/exceptions.html#TimeoutError) if the timeout occurs before all 	Futures are done.*在 3.10 版更改:* 移除了 *loop* 形参。示例:
+
+```python
+for coro in as_completed(aws):
+    earliest_result = await coro
+    # ...
+```
+
+*在 3.10 版更改:* 移除了 *loop* 形参。
+
+*3.10 版后已移除:* 如果 *aws* 可迭代对象中的可等待对象不全为 Future 类对象并且没有正在运行的事件循环则会发出弃用警告。
+
+
+
+## [在线程中运行](https://docs.python.org/zh-cn/3/library/asyncio-task.html#id12)
+
+*coroutine* asyncio.**to_thread**(*func*, */*, **args*, ***kwargs*)
+
+在不同的线程中异步地运行函数 *func*。向此函数提供的任何 *args 和 **kwargs 会被直接传给 *func*。 并且，当前 [`contextvars.Context`](https://docs.python.org/zh-cn/3/library/contextvars.html#contextvars.Context) 会被传播，允许在不同的线程中访问来自事件循环的上下文变量。返回一个可被等待以获取 *func* 的最终结果的协程。这个协程函数会优先被适用于执行如果在主线程中会阻塞事件循环的绑定IO的函数/方法。
+
+比如：
+
+```python
+def blocking_io():
+    print(f"start blocking_io at {time.strftime('%X')}")
+    # Note that time.sleep() can be replaced with any blocking
+    # IO-bound operation, such as file operations.
+    time.sleep(1)
+    print(f"blocking_io complete at {time.strftime('%X')}")
+
+async def main():
+    print(f"started main at {time.strftime('%X')}")
+
+    await asyncio.gather(
+        asyncio.to_thread(blocking_io),
+        asyncio.sleep(1))
+
+    print(f"finished main at {time.strftime('%X')}")
+
+
+asyncio.run(main())
+
+# Expected output:
+#
+# started main at 19:50:53
+# start blocking_io at 19:50:53
+# blocking_io complete at 19:50:54
+# finished main at 19:50:54
+```
+
+直接在任何协程中调用 `blocking_io()` 会在其运行中阻塞事件循环，会增加运行时间1秒。如果使用 `asyncio.to_thread()`，我们可以在不阻塞事件循环的情况下将其运行在要给单独胡的线程中。
+
+备注：
+
+由于 [GIL](https://docs.python.org/zh-cn/3/glossary.html#term-GIL),，`asyncio.to_thread()` 通常只能被用来使得绑定IO的函数不会被阻塞。但是，对于一些扩展模型（释放了GIL或者不具有GIL限制的其他Python编译器）， `asyncio.to_thread()` 也可以用来绑定CPU的函数。
+
+*3.9 新版功能.*
+
+
+
+## [跨线程调度](https://docs.python.org/zh-cn/3/library/asyncio-task.html#id13)
+
+asyncio.**run_coroutine_threadsafe**(*coro*, *loop*)
+
+向指定事件循环提交一个协程。（线程安全）返回一个 [`concurrent.futures.Future`](https://docs.python.org/zh-cn/3/library/concurrent.futures.html#concurrent.futures.Future) 以等待来自其他 OS 线程的结果。此函数应该从另一个 OS 线程中调用，而非事件循环运行所在线程。示例:
+
+```python
+# Create a coroutine
+coro = asyncio.sleep(1, result=3)
+
+# Submit the coroutine to a given loop
+future = asyncio.run_coroutine_threadsafe(coro, loop)
+
+# Wait for the result with an optional timeout argument
+assert future.result(timeout) == 3
+```
+
+如果在协程内产生了异常，将会通知返回的 Future 对象。它也可被用来取消事件循环中的任务:
+
+```python
+try:
+    result = future.result(timeout)
+except TimeoutError:
+    print('The coroutine took too long, cancelling the task...')
+    future.cancel()
+except Exception as exc:
+    print(f'The coroutine raised an exception: {exc!r}')
+else:
+    print(f'The coroutine returned: {result!r}')
+```
+
+参见 [concurrency and multithreading](https://docs.python.org/zh-cn/3/library/asyncio-dev.html#asyncio-multithreading) 部分的文档。
+
+不同与其他 asyncio 函数，此函数要求显式地传入 *loop* 参数。
+
+*3.5.1 新版功能.*
+
+
+
+## [内省](https://docs.python.org/zh-cn/3/library/asyncio-task.html#id14)
+
+asyncio.**current_task**(*loop=None*)
+
+返回当前运行的 [`Task`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task) 实例，如果没有正在运行的任务则返回 `None`。如果 *loop* 为 `None` 则会使用 [`get_running_loop()`](https://docs.python.org/zh-cn/3/library/asyncio-eventloop.html#asyncio.get_running_loop) 获取当前事件循环。*3.7 新版功能.*
+
+asyncio.**all_tasks**(*loop=None*)
+
+返回事件循环所运行的未完成的 [`Task`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task) 对象的集合。如果 *loop* 为 `None`，则会使用 [`get_running_loop()`](https://docs.python.org/zh-cn/3/library/asyncio-eventloop.html#asyncio.get_running_loop) 获取当前事件循环。*3.7 新版功能.*
+
+
+
+## [Task 对象](https://docs.python.org/zh-cn/3/library/asyncio-task.html#id15)
+
+*class* asyncio.**Task**(*coro*, ***, *loop=None*, *name=None*)
+
+一个与 [`Future 类似`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future) 的对象，可运行 Python [协程](https://docs.python.org/zh-cn/3/library/asyncio-task.html#coroutine)。非线程安全。
+
+Task 对象被用来在事件循环中运行协程。如果一个协程在等待一个 Future 对象，Task 对象会挂起该协程的执行并等待该 Future 对象完成。当该 Future 对象 *完成*，被打包的协程将恢复执行。
+
+事件循环使用协同日程调度: 一个事件循环每次运行一个 Task 对象。而一个 Task 对象会等待一个 Future 对象完成，该事件循环会运行其他 Task、回调或执行 IO 操作。
+
+使用高层级的 [`asyncio.create_task()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.create_task) 函数来创建 Task 对象，也可用低层级的 [`loop.create_task()`](https://docs.python.org/zh-cn/3/library/asyncio-eventloop.html#asyncio.loop.create_task) 或 [`ensure_future()`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.ensure_future) 函数。不建议手动实例化 Task 对象。
+
+要取消一个正在运行的 Task 对象可使用 [`cancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.cancel) 方法。调用此方法将使该 Task 对象抛出一个 [`CancelledError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.CancelledError) 异常给打包的协程。如果取消期间一个协程正在等待一个 Future 对象，该 Future 对象也将被取消。
+
+[`cancelled()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.cancelled) 可被用来检测 Task 对象是否被取消。如果打包的协程没有抑制 [`CancelledError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.CancelledError) 异常并且确实被取消，该方法将返回 `True`。
+
+[`asyncio.Task`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task) 从 [`Future`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future) 继承了其除 [`Future.set_result()`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future.set_result) 和 [`Future.set_exception()`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future.set_exception) 以外的所有 API。
+
+Task 对象支持 [`contextvars`](https://docs.python.org/zh-cn/3/library/contextvars.html#module-contextvars) 模块。当一个 Task 对象被创建，它将复制当前上下文，然后在复制的上下文中运行其协程。
+
+*在 3.7 版更改:* 加入对 [`contextvars`](https://docs.python.org/zh-cn/3/library/contextvars.html#module-contextvars) 模块的支持。
+
+*在 3.8 版更改:* 添加了 *name* 形参。
+
+*3.10 版后已移除:* 如果未指定 *loop* 并且没有正在运行的事件循环则会发出弃用警告。
+
+
+
+**done**()
+
+如果 Task 对象 *已完成* 则返回 `True`。
+
+当 Task 所封包的协程返回一个值、引发一个异常或 Task 本身被取消时，则会被认为 *已完成*。
+
+**result**()
+
+返回 Task 的结果。如果 Task 对象 *已完成*，其封包的协程的结果会被返回 (或者当协程引发异常时，该异常会被重新引发。)如果 Task 对象 *被取消*，此方法会引发一个 [`CancelledError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.CancelledError) 异常。如果 Task 对象的结果还不可用，此方法会引发一个 [`InvalidStateError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.InvalidStateError) 异常。
+
+**exception**()
+
+返回 Task 对象的异常。如果所封包的协程引发了一个异常，该异常将被返回。如果所封包的协程正常返回则该方法将返回 `None`。如果 Task 对象 *被取消*，此方法会引发一个 [`CancelledError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.CancelledError) 异常。如果 Task 对象尚未 *完成*，此方法将引发一个 [`InvalidStateError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.InvalidStateError) 异常。
+
+**add_done_callback**(*callback*, ***, *context=None*)
+
+添加一个回调，将在 Task 对象 *完成* 时被运行。此方法应该仅在低层级的基于回调的代码中使用。要了解更多细节请查看 [`Future.add_done_callback()`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future.add_done_callback) 的文档。
+
+**remove_done_callback**(*callback*)
+
+从回调列表中移除 *callback* 。此方法应该仅在低层级的基于回调的代码中使用。要了解更多细节请查看 [`Future.remove_done_callback()`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future.remove_done_callback) 的文档。
+
+**get_stack**(***, *limit=None*)
+
+返回此 Task 对象的栈框架列表。如果所封包的协程未完成，这将返回其挂起所在的栈。如果协程已成功完成或被取消，这将返回一个空列表。如果协程被一个异常终止，这将返回回溯框架列表。框架总是从按从旧到新排序。每个被挂起的协程只返回一个栈框架。可选的 *limit* 参数指定返回框架的数量上限；默认返回所有框架。返回列表的顺序要看是返回一个栈还是一个回溯：栈返回最新的框架，回溯返回最旧的框架。(这与 traceback 模块的行为保持一致。)
+
+**print_stack**(***, *limit=None*, *file=None*)
+
+打印此 Task 对象的栈或回溯。此方法产生的输出类似于 traceback 模块通过 [`get_stack()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.get_stack) 所获取的框架。*limit* 参数会直接传递给 [`get_stack()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.get_stack)。*file* 参数是输出所写入的 I/O 流；默认情况下输出会写入 [`sys.stderr`](https://docs.python.org/zh-cn/3/library/sys.html#sys.stderr)。
+
+**get_coro**()
+
+返回由 [`Task`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task) 包装的协程对象。*3.8 新版功能.*
+
+**get_name**()
+
+返回 Task 的名称。如果没有一个 Task 名称被显式地赋值，默认的 asyncio Task 实现会在实例化期间生成一个默认名称。*3.8 新版功能.*
+
+**set_name**(*value*)
+
+设置 Task 的名称。*value* 参数可以为任意对象，它随后会被转换为字符串。在默认的 Task 实现中，名称将在任务对象的 [`repr()`](https://docs.python.org/zh-cn/3/library/functions.html#repr) 输出中可见。*3.8 新版功能.*
+
+**cancel**(*msg=None*)
+
+请求取消 Task 对象。这将安排在下一轮事件循环中抛出一个 [`CancelledError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.CancelledError) 异常给被封包的协程。协程在之后有机会进行清理甚至使用 [`try`](https://docs.python.org/zh-cn/3/reference/compound_stmts.html#try) ... ... `except CancelledError` ... [`finally`](https://docs.python.org/zh-cn/3/reference/compound_stmts.html#finally) 代码块抑制异常来拒绝请求。不同于 [`Future.cancel()`](https://docs.python.org/zh-cn/3/library/asyncio-future.html#asyncio.Future.cancel)，[`Task.cancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.cancel) 不保证 Task 会被取消，虽然抑制完全取消并不常见，也很不鼓励这样做。*在 3.9 版更改:* 增加了 *msg* 形参。*在 3.11 版更改:* The `msg` parameter is propagated from cancelled task to its awaiter.以下示例演示了协程是如何侦听取消请求的:
+
+```python
+async def cancel_me():
+    print('cancel_me(): before sleep')
+
+    try:
+        # Wait for 1 hour
+        await asyncio.sleep(3600)
+    except asyncio.CancelledError:
+        print('cancel_me(): cancel sleep')
+        raise
+    finally:
+        print('cancel_me(): after sleep')
+
+async def main():
+    # Create a "cancel_me" Task
+    task = asyncio.create_task(cancel_me())
+
+    # Wait for 1 second
+    await asyncio.sleep(1)
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print("main(): cancel_me is cancelled now")
+
+asyncio.run(main())
+
+# Expected output:
+#
+#     cancel_me(): before sleep
+#     cancel_me(): cancel sleep
+#     cancel_me(): after sleep
+#     main(): cancel_me is cancelled now
+```
+
+**cancelled**()
+
+如果 Task 对象 *被取消* 则返回 `True`。当使用 [`cancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.cancel) 发出取消请求时 Task 会被 *取消*，其封包的协程将传播被抛入的 [`CancelledError`](https://docs.python.org/zh-cn/3/library/asyncio-exceptions.html#asyncio.CancelledError) 异常。
+
+**uncancel**()
+
+Decrement the count of cancellation requests to this Task.Returns the remaining number of cancellation requests.
+
+减少对于取消这个任务的申请的计数。返回现在存在的取消申请的数量。需要注意，一旦取消任务的执行完成，再次调用 [`uncancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.uncancel) 没有任何效果。
+
+*3.11 新版功能.*
+
+This method is used by asyncio's internals and isn't expected to be used by end-user code.这个方法主要针对asyncio的内部使用，没有计划被终端客户的代码使用。特别是，如果任务被成功取消，它允许并发结构的元素，比如  [Task Groups](https://docs.python.org/zh-cn/3/library/asyncio-task.html#taskgroups) 和 [`asyncio.timeout()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.timeout) 继续执行，将取消和各自的结构分开。比如：
+
+```python
+async def make_request_with_timeout():
+    try:
+        async with asyncio.timeout(1):
+            # Structured block affected by the timeout:
+            await make_request()
+            await make_another_request()
+    except TimeoutError:
+        log("There was a timeout")
+    # Outer code not affected by the timeout:
+    await unrelated_code()
+```
+
+当模块 `make_request()` 和d `make_another_request()` 有可能由于超时而被取消的时候， `unrelated_code()` 应该会继续执行，即使超时。这是类似通过[`uncancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.uncancel). [`TaskGroup`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.TaskGroup) 上下文管理器使用 [`uncancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.uncancel) 。
+
+
+
+**cancelling**()
+
+返回暂停中的对于任务的取消请求。也就是调用  [`cancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.cancel) 的结果减去调用 [`uncancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.uncancel) 结果的数量。
+
+需要注意的是，如果这个数字比0大，但是任务还在可能在执行， [`cancelled()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.cancelled) 还是会返回False，这是由于调用 [`uncancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.uncancel)会使得这个数字降低，导致任务无法在取消申请变为0的时候还是取消任务。
+
+这个方法主要在asyncio内部代码中使用，不建议用在终端用户代码中，更多细节查看 [`uncancel()`](https://docs.python.org/zh-cn/3/library/asyncio-task.html#asyncio.Task.uncancel) 。
+
+*3.11 新版功能.*
