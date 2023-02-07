@@ -4,6 +4,7 @@
 # 最自然的方式是使用和原数组一样的布尔数组
 
 import numpy as np
+import matplotlib
 
 a=np.arange(12).reshape(3,4)
 b=a>4
