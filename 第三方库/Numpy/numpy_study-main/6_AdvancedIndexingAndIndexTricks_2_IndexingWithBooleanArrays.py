@@ -6,6 +6,7 @@
 import numpy as np
 import matplotlib
 
+#ndarray 可以直接通过比较运算符返回bool
 a=np.arange(12).reshape(3,4)
 b=a>4
 print(b)
@@ -13,6 +14,7 @@ print(b)
 #  [False  True  True  True]
 #  [ True  True  True  True]]
 
+# a[b]返回一个所有值都为True的一维
 print(a[b])
 # [ 5  6  7  8  9 10 11]
 
@@ -28,6 +30,7 @@ print(a)
 import matplotlib.pyplot as plt
 def mandelbrot(h, w, maxit=20):
     """Returns an image of the Mandelbrot fractal of size (h,w)."""
+    #注意np.orgid的参数
     y, x = np.ogrid[-1.4:1.4:h*1j, -2:0.8:w*1j]
     c = x + y * 1j
     z = c
@@ -63,5 +66,5 @@ print(a[:,b2]) #第0列和第2列被选中
 print(a[b1,b2])
 # [ 4 10]
 
-#需要注意的是1为的布尔数组长度必须符合原数组参与切片的维度的长度。b1长度为3，b2长度为4.
+#需要注意的是1维的布尔数组长度必须符合原数组参与切片的维度的长度。b1长度为3，b2长度为4.
 

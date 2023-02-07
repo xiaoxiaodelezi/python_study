@@ -485,3 +485,162 @@ print(a)
 
 ```
 
+###	6.2 Indexing with Boolean Arrays
+
+```python
+#我们可以使用索引数组包含数组或者整数来索引我们提供的数据，使用布尔索引的提取方式不同。
+#我们只是选择是否需要这个数据
+
+# 最自然的方式是使用和原数组一样的布尔数组
+
+import numpy as np
+import matplotlib
+
+#ndarray 可以直接通过比较运算符返回bool
+a=np.arange(12).reshape(3,4)
+b=a>4
+print(b)
+# [[False False False False]
+#  [False  True  True  True]
+#  [ True  True  True  True]]
+
+# a[b]返回一个所有值都为True的一维
+print(a[b])
+# [ 5  6  7  8  9 10 11]
+
+#这个方法非常有用
+a[b]=0 #选择所有大于4的数，然后重置为0
+print(a)
+# [[0 1 2 3]
+#  [4 0 0 0]
+#  [0 0 0 0]]
+
+#一个布尔索引创建图片的例子
+
+import matplotlib.pyplot as plt
+def mandelbrot(h, w, maxit=20):
+    """Returns an image of the Mandelbrot fractal of size (h,w)."""
+    #注意np.orgid的参数
+    y, x = np.ogrid[-1.4:1.4:h*1j, -2:0.8:w*1j]
+    c = x + y * 1j
+    z = c
+    divtime = maxit + np.zeros(z.shape, dtype=int)
+
+    for i in range(maxit):
+        z = z**2 + c
+        diverge = z * np.conj(z) > 2**2       # who is diverging
+        div_now = diverge & (divtime == maxit)  # who is diverging now
+        divtime[div_now] = i                    # note when
+        z[diverge] = 2                          # avoid diverging too much
+
+    return divtime
+plt.imshow(mandelbrot(400, 400))
+plt.show()
+
+#第二种布尔索引方法和整数索引更加类似，对于数组上每一个维度，我们给于一个1维的布尔数组。
+
+a=np.arange(12).reshape(3,4)
+print(a)
+b1=np.array([False,True,True])
+b2=np.array([True,False,True,False])
+
+print(a[b1,:]) #第0行false没有被选入
+# [[ 4  5  6  7]
+#  [ 8  9 10 11]]
+
+print(a[:,b2]) #第0列和第2列被选中
+# [[ 0  2]
+#  [ 4  6]
+#  [ 8 10]]
+
+print(a[b1,b2])
+# [ 4 10]
+
+#需要注意的是1维的布尔数组长度必须符合原数组参与切片的维度的长度。b1长度为3，b2长度为4.
+
+```
+
+### 6.3 The ix_() function
+
+`ix_`函数可用于组合不同的向量以获得每个 n-uplet 的结果。例如，如果要计算从向量 a、b 和 c 中的每一个中提取的所有三元组的所有 a+b*c：
+
+```python
+#ix_()函数
+
+import numpy as np
+
+a=np.array([2,3,4,5])
+b=np.array([8,5,4])
+c=np.array([5,4,6,8,3])
+ax,bx,cx=np.ix_(a,b,c)
+print(ax)
+# [[[2]]
+#
+#  [[3]]
+#
+#  [[4]]
+#
+#  [[5]]]
+print(ax.shape)
+# (4, 1, 1)
+
+print(bx)
+# [[[8]
+#   [5]
+#   [4]]]
+print(bx.shape)
+# (1, 3, 1)
+
+print(cx)
+# [[[5 4 6 8 3]]]
+print(cx.shape)
+# (1, 1, 5)
+
+result=ax+bx*cx
+print(result) #result[i,j,k]=ai+bj*ck
+# [[[42 34 50 66 26]
+#   [27 22 32 42 17]
+#   [22 18 26 34 14]]
+#
+#  [[43 35 51 67 27]
+#   [28 23 33 43 18]
+#   [23 19 27 35 15]]
+#
+#  [[44 36 52 68 28]
+#   [29 24 34 44 19]
+#   [24 20 28 36 16]]
+#
+#  [[45 37 53 69 29]
+#   [30 25 35 45 20]
+#   [25 21 29 37 17]]]
+
+
+def ufunc_reduce(ufct,*vectors):
+    vs=np.ix_(*vectors)
+    r=ufct.identity
+    for v in vs:
+        r=ufct(r,v)
+    return r
+
+print(ufunc_reduce(np.add,a,b,c,))
+# [[[15 14 16 18 13]
+#   [12 11 13 15 10]
+#   [11 10 12 14  9]]
+#
+#  [[16 15 17 19 14]
+#   [13 12 14 16 11]
+#   [12 11 13 15 10]]
+#
+#  [[17 16 18 20 15]
+#   [14 13 15 17 12]
+#   [13 12 14 16 11]]
+#
+#  [[18 17 19 21 16]
+#   [15 14 16 18 13]
+#   [14 13 15 17 12]]]
+
+#这个版本比起普通的ufunc.reduce好，因为它可以通过广播原则避免创造一个参数数组来表示数量的相乘
+
+
+```
+
