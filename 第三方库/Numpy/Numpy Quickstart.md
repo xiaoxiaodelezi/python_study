@@ -573,7 +573,7 @@ a=np.array([2,3,4,5])
 b=np.array([8,5,4])
 c=np.array([5,4,6,8,3])
 ax,bx,cx=np.ix_(a,b,c)
-print(ax)
+print(ax) #a被转换为一个(4,1,1)
 # [[[2]]
 #
 #  [[3]]
@@ -581,17 +581,17 @@ print(ax)
 #  [[4]]
 #
 #  [[5]]]
-print(ax.shape)
+print(ax.shape) #b
 # (4, 1, 1)
 
-print(bx)
+print(bx) #b被转换为一个(1,2,1) 因为b作为ix_的第二个参数
 # [[[8]
 #   [5]
 #   [4]]]
 print(bx.shape)
 # (1, 3, 1)
 
-print(cx)
+print(cx)#c被转换为一个(1,1,5) 因为c作为ix_的最后一个参数
 # [[[5 4 6 8 3]]]
 print(cx.shape)
 # (1, 1, 5)
@@ -615,13 +615,22 @@ print(result) #result[i,j,k]=ai+bj*ck
 #   [25 21 29 37 17]]]
 
 
+```
+
+可以这样设置reduce
+
+```python
 def ufunc_reduce(ufct,*vectors):
     vs=np.ix_(*vectors)
     r=ufct.identity
     for v in vs:
         r=ufct(r,v)
     return r
+```
 
+然后这样使用它
+
+```python
 print(ufunc_reduce(np.add,a,b,c,))
 # [[[15 14 16 18 13]
 #   [12 11 13 15 10]
@@ -641,6 +650,132 @@ print(ufunc_reduce(np.add,a,b,c,))
 
 #这个版本比起普通的ufunc.reduce好，因为它可以通过广播原则避免创造一个参数数组来表示数量的相乘
 
+```
+
+## 7.LinearAlgebra：SimpleArrayOperation
+
+```python
+#简单的数组操作
+
+import numpy as np
+a=np.array([[1.0,2.0],[3.0,4.0]])
+print(a)
+# [[1. 2.]
+#  [3. 4.]]
+
+print(a.transpose())
+# [[1. 3.]
+#  [2. 4.]]
+
+print(np.linalg.inv(a)) #逆矩阵
+# [[-2.   1. ]
+#  [ 1.5 -0.5]]
+
+u=np.eye(2)
+print(u)
+# [[1. 0.]
+#  [0. 1.]]
+
+j=np.array([[0.0,-1.0],[1.0,0.0]])#矩阵相乘
+print(j@j)
+# [[-1.  0.]
+#  [ 0. -1.]]
+
+print(np.trace(u))#对角线之和
+# 2.0
+
+y=np.array([[5.],[7.]]) #以矩阵方式求线性方程
+print(np.linalg.solve(a,y))
+# [[-3.]
+#  [ 4.]]
+
+print(np.linalg.eig(j))#特征向量
+# (array([0.+1.j, 0.-1.j]), array([[0.70710678+0.j        , 0.70710678-0.j        ],
+#        [0.        -0.70710678j, 0.        +0.70710678j]]))
 
 ```
+
+
+
+## 8. Tricks and Tips
+
+### 8.1 “Automatic” Reshaping
+
+在改变数组形状时，可以省略其中的一个数字，这个维度会被自动计算
+
+```python
+#自动塑形
+#在改变数组形状时，可以省略其中的一个数字，这个维度会被自动计算
+
+import numpy as np
+
+a=np.arange(30)
+b=a.reshape((2,-1,3)) #负数被认为时省略
+print(b.shape)
+# (2, 5, 3)
+print(b)
+'''
+[[[ 0  1  2]
+  [ 3  4  5]
+  [ 6  7  8]
+  [ 9 10 11]
+  [12 13 14]]
+
+ [[15 16 17]
+  [18 19 20]
+  [21 22 23]
+  [24 25 26]
+  [27 28 29]]]
+
+'''
+
+```
+
+
+
+### 8.2 向量叠加
+
+在numpy中通过 `column_stack`, `dstack`, `hstack` and `vstack` 函数来进行向量叠加。选择什么样的函数取决于你需要在哪个维度上叠加。 
+
+```python
+import numpy as np
+
+x=np.arange(0,10,2)
+y=np.arange(5)
+
+m=np.vstack([x,y])
+print(m)
+# [[0 2 4 6 8]
+#  [0 1 2 3 4]]
+
+xy=np.hstack([x,y])
+print(xy)
+# [0 2 4 6 8 0 1 2 3 4]
+```
+
+
+
+### 8.3 直方图
+
+```python
+import numpy as np
+
+rg=np.random.default_rng(1)
+
+import matplotlib.pyplot as plt
+
+mu,sigma = 2, 0.5
+
+v=rg.normal(mu,sigma,10000)#高斯分布
+
+plt.hist(v,bins=50,density=1)
+
+(n,bins)=np.histogram(v,bins=50,density=True)
+
+plt.plot(.5*(bins[1:]+bins[:-1]),n)
+
+plt.show()
+```
+
+
 
