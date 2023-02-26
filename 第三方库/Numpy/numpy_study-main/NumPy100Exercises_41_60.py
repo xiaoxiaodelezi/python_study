@@ -15,7 +15,7 @@ print(np.sum(z))
 # 42. Consider two random array A and B, check if they are equal (★★☆)
 a = np.random.randint(0,2,5)
 b = np.random.randint(0,2,5)
-equal=np.allclose(a,b) #allclose 可以有参数设定差数
+equal=np.allclose(a,b) #allclose 可以有参数设定误差数
 print(equal)
 
 equal=np.array_equal(a,b)#完全一致，没有参数
@@ -29,6 +29,7 @@ Z.flags.writeable=False
 
 
 # 44. Consider a random 10x2 matrix representing cartesian coordinates, convert them to polar coordinates (★★☆)
+# 笛卡尔->极坐标
 z=np.random.random((10,2))
 print(z)
 x,y=z[:,0],z[:,1]
@@ -42,7 +43,7 @@ print(t)
 
 # 45. Create random vector of size 10 and replace the maximum value by 0 (★★☆)
 z=np.random.random(10)
-z[z.argmax()]=0
+z[z.argmax()]=0 #返回的是一个index，多维数组无法直接使用[index]方式调用
 print(z)
 
 
@@ -55,6 +56,7 @@ print(z)
 
 
 # 47. Given two arrays, X and Y, construct the Cauchy matrix C (Cij =1/(xi - yj))
+# 柯西矩阵  
 x=np.arange(8)
 y=x+0.5
 print(np.subtract.outer(x,y))
@@ -69,7 +71,7 @@ for dtype in [np.int8,np.int32,np.int64]:
 for dtype in [np.float32, np.float64]:
     print(np.finfo(dtype).min)
     print(np.finfo(dtype).max)
-    print(np.finfo(dtype).eps)
+    print(np.finfo(dtype).eps) # 非负最小值
 
 
 # 49. How to print all the values of an array? (★★☆)
@@ -82,7 +84,7 @@ print(z)
 z=np.arange(100)
 v=np.random.uniform(0,100)
 index=(np.abs(z-v)).argmin()
-print(z[index])
+print(z[index]) #多维index可以获取，但无法使用z[index]
 
 
 # 51. Create a structured array representing a position (x,y) and a color (r,g,b) (★★☆)
